@@ -86,7 +86,8 @@ public final class UiWorkflowTest extends InstrumentationTestCase {
         TextView status = activity.findViewById(R.id.status_label);
         View filterScroll = (View) filterAll.getParent().getParent();
 
-        assertEquals("사진 추가", primary.getText().toString());
+        assertEquals("사진 가져오기", primary.getText().toString());
+        assertEquals("사진만 쏙.\n기록은 두고.", ((TextView) activity.findViewById(R.id.empty_title)).getText().toString());
         assertTrue(primary.isEnabled());
         assertEquals(View.VISIBLE, emptyState.getVisibility());
         assertEquals(View.GONE, filterScroll.getVisibility());
@@ -112,6 +113,9 @@ public final class UiWorkflowTest extends InstrumentationTestCase {
         assertEquals("실패 1", filterError.getText().toString());
         assertTrue(filterAll.isSelected());
         assertEquals(4, queue.getAdapter().getCount());
+        Button primary = activity.findViewById(R.id.primary_action);
+        assertEquals("3장 긴빠이하기", primary.getText().toString());
+        assertTrue(primary.getContentDescription().toString().contains("사본 저장"));
 
         click(filterPending);
         assertTrue(filterPending.isSelected());
@@ -198,6 +202,22 @@ public final class UiWorkflowTest extends InstrumentationTestCase {
                 "PNG / 원본 해상도 / 픽셀 변화 꺼짐",
                 optionsSummary().getText().toString()
         );
+    }
+
+    public void testCompletedPhotoDistinguishesSavingFromAiDetection() throws Exception {
+        addQueueItem("완료 사진", "done");
+        launchActivity();
+        ListView queue = activity.findViewById(R.id.queue_list);
+        getInstrumentation().runOnMainSync(() -> {
+            View row = queue.getAdapter().getView(0, null, queue);
+            assertTrue(row.performClick());
+        });
+        getInstrumentation().waitForIdleSync();
+        TextView detection = activeSheet().findViewById(R.id.detection_status);
+        assertNotNull(detection);
+        assertTrue(detection.getText().toString().startsWith("AI 검출: 검사하지 않음"));
+        assertTrue(detection.getText().toString().contains("SynthID"));
+        assertEquals("챙긴 1장 공유", ((Button) activity.findViewById(R.id.primary_action)).getText().toString());
     }
 
     private void launchActivity() {

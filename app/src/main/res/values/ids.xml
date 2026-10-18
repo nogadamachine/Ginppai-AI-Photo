@@ -15,4 +15,7 @@
     <item name="option_reprocess" type="id" />
     <item name="apply_settings" type="id" />
     <item name="status_label" type="id" />
+    <item name="detection_info" type="id" />
+    <item name="detection_status" type="id" />
+    <item name="empty_title" type="id" />
 </resources>

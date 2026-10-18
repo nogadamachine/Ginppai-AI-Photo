@@ -1,12 +1,12 @@
 <resources>
-    <color name="background">#F5F7FB</color>
+    <color name="background">#F3F2EE</color>
     <color name="surface">#FFFFFF</color>
-    <color name="text">#172239</color>
-    <color name="secondary">#55647C</color>
-    <color name="accent">#245BCD</color>
+    <color name="text">#232522</color>
+    <color name="secondary">#5B6159</color>
+    <color name="accent">#B83B19</color>
     <color name="on_accent">#FFFFFF</color>
-    <color name="tint">#E8EFFD</color>
-    <color name="line">#DCE3EF</color>
+    <color name="tint">#F8E7DD</color>
+    <color name="line">#D9DCD3</color>
     <color name="error">#AD2222</color>
     <color name="success">#17633A</color>
 </resources>

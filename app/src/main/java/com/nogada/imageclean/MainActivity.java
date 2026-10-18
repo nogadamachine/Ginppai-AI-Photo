@@ -117,7 +117,7 @@ public final class MainActivity extends Activity {
         button.setPadding(dp(16), dp(12), dp(16), dp(12));
         button.setTextColor(new ColorStateList(new int[][] {new int[] {-android.R.attr.state_enabled}, new int[] {}},
                 new int[] {color(R.color.secondary), color(filled ? R.color.on_accent : R.color.accent)}));
-        button.setBackground(Ui.ripple(this, filled ? R.color.accent : R.color.tint, 16));
+        button.setBackground(Ui.ripple(this, filled ? R.color.accent : R.color.tint, 12));
         return button;
     }
 
@@ -150,10 +150,14 @@ public final class MainActivity extends Activity {
         toolbar.setGravity(Gravity.CENTER_VERTICAL);
         toolbar.setPadding(dp(24), dp(8), dp(12), dp(8));
         LinearLayout branding = vertical();
-        TextView title = text(getString(R.string.app_name), 19, R.color.text, true);
+        TextView title = text("긴빠이", 26, R.color.text, true);
         title.setAccessibilityHeading(true);
         branding.addView(title);
-        if (!compact()) branding.addView(text("오프라인 이미지 클리너", 12, R.color.secondary, false), block(5));
+        if (!compact()) {
+            TextView wordmark = text(getString(R.string.app_name), 11, R.color.secondary, false);
+            wordmark.setTypeface(Typeface.MONOSPACE);
+            branding.addView(wordmark, block(5));
+        }
         toolbar.addView(branding, new LinearLayout.LayoutParams(0, -2, 1));
         settings = iconButton("settings", "저장 설정");
         settings.setId(R.id.settings_action);
@@ -226,12 +230,11 @@ public final class MainActivity extends Activity {
         empty.setGravity(Gravity.CENTER);
         empty.setPadding(dp(32), dp(20), dp(32), dp(20));
         ImageView illustration = new ImageView(this);
-        illustration.setImageDrawable(new Ui.Icon("photo", color(R.color.accent)));
-        illustration.setPadding(dp(22), dp(22), dp(22), dp(22));
-        illustration.setBackground(Ui.background(this, R.color.tint, 28));
+        illustration.setImageResource(R.drawable.ic_loot);
         illustration.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        if (!compact()) empty.addView(illustration, new LinearLayout.LayoutParams(dp(100), dp(100)));
-        emptyTitle = text("사진을 추가해 주세요", 25, R.color.text, true);
+        if (!compact()) empty.addView(illustration, new LinearLayout.LayoutParams(dp(144), dp(144)));
+        emptyTitle = text("", compact() ? 25 : 31, R.color.text, true);
+        emptyTitle.setId(R.id.empty_title);
         emptyTitle.setGravity(Gravity.CENTER);
         emptyTitle.setAccessibilityHeading(true);
         empty.addView(emptyTitle, block(compact() ? 0 : 28));
@@ -261,7 +264,7 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams addPosition = new LinearLayout.LayoutParams(dp(52), dp(52));
         addPosition.setMarginEnd(dp(12));
         actions.addView(add, addPosition);
-        primary = button("사진 추가", true);
+        primary = button("사진 가져오기", true);
         primary.setId(R.id.primary_action);
         primary.setOnClickListener(view -> startOrPause());
         actions.addView(primary, new LinearLayout.LayoutParams(0, -2, 1));
@@ -344,8 +347,14 @@ public final class MainActivity extends Activity {
         reprocess.setChecked(preferences.getBoolean("reprocess", false));
         content.addView(reprocess, block(20));
         content.addView(text("축소 후 복원과 색상 단순화로 일부 픽셀 신호를 약화합니다. 색상과 디테일이 손상될 수 있어요. 기본값은 꺼짐입니다.", 13, R.color.secondary, false), block(4));
-        content.addView(text("공개 워터마크 2종의 제한된 실험입니다. SynthID, 다른 워터마크와 AI 판별은 미검증이며, 검출되지 않아도 완전 제거를 뜻하지 않습니다.", 13, R.color.error, false), block(10));
-        content.addView(text("메타데이터 삭제와 AI 판별은 다릅니다. AI 표시나 보이지 않는 워터마크 제거는 보장하지 않습니다.", 13, R.color.secondary, false), block(20));
+        content.addView(text("SynthID 회피 기능이 아닙니다. 공개 워터마크 2종의 제한된 실험으로, 다른 워터마크와 AI 판별에는 효과가 검증되지 않았습니다.", 13, R.color.error, false), block(10));
+        Button detection = button("SynthID와 AI 표시 안내", false);
+        detection.setId(R.id.detection_info);
+        content.addView(detection, block(16));
+        detection.setOnClickListener(view -> new AlertDialog.Builder(this)
+                .setTitle("사진 저장과 AI 판별은 별개입니다")
+                .setMessage("파일 속 AI 생성 기록은 정리하지만 픽셀에 심긴 SynthID는 다릅니다.\n\n현재 앱에는 SynthID 검출기나 검증된 회피 기능이 없습니다. 실험 모드를 켜도 제거 성공으로 판정하지 않습니다.\n\nAI 표시 여부는 게시 플랫폼이 결정합니다. 메타데이터를 지워도 표시가 붙을 수 있습니다.")
+                .setPositiveButton("확인", null).show());
         Button apply = button("설정 적용", true);
         apply.setId(R.id.apply_settings);
         content.addView(apply, block(24));
@@ -378,7 +387,7 @@ public final class MainActivity extends Activity {
 
     private void showHelp() {
         LinearLayout content = vertical();
-        content.addView(text("1. 사진 선택\n여러 장을 고르거나 갤러리의 공유 메뉴에서 이 앱을 선택하세요.\n\n2. 정리하고 저장\n위치, 촬영 정보, 파일 안의 AI 생성 기록을 제거한 사본을 만듭니다. 원본은 그대로 둡니다.\n\n3. 바로 공유\n완료한 사진을 누르면 미리보기와 개별 공유가 가능합니다.", 15, R.color.text, false));
+        content.addView(text("사진만 쏙. 원본은 그대로.\n\n1. 사진 가져오기\n여러 장을 고르거나 갤러리의 공유 메뉴에서 긴빠이로 보내세요.\n\n2. 긴빠이하기\n위치, 촬영 정보, 파일 안의 AI 생성 기록을 덜어낸 새 사본을 갤러리에 저장합니다.\n\n3. 챙긴 사본 공유\n완료한 사진을 누르면 미리보기와 개별 공유가 가능합니다.\n\n저장 완료는 AI 판별 통과를 뜻하지 않습니다. SynthID 회피와 모든 워터마크 제거를 보장하지 않습니다.", 15, R.color.text, false));
         content.addView(text("저장 위치\nPictures/Ginppai-AI-Photo\n\n인터넷 연결, 계정, 광고, 사용 횟수 제한이 없습니다. 한 파일은 256 MB 이하이며 처리 가능 크기는 기기 메모리에 따라 달라집니다.\n\n동영상과 애니메이션은 지원하지 않습니다. 일부 HEIC/AVIF와 RAW는 기기 디코더에 따라 열리지 않을 수 있습니다.\n\n버전 " + BuildConfig.VERSION_NAME, 13, R.color.secondary, false), block(24));
         sheet("사용 안내", content);
     }
@@ -535,7 +544,7 @@ public final class MainActivity extends Activity {
         if ("done".equals(item.state)) return "저장 완료";
         if ("error".equals(item.state)) return "처리 실패";
         if ("missing".equals(item.state)) return "사본을 찾을 수 없음";
-        if ("working".equals(item.state) || "publishing".equals(item.state)) return "정리하는 중";
+        if ("working".equals(item.state) || "publishing".equals(item.state)) return "사본 챙기는 중";
         return "대기 중";
     }
 
@@ -568,9 +577,14 @@ public final class MainActivity extends Activity {
         content.addView(preview, new LinearLayout.LayoutParams(-1, dp(compact() ? 120 : 220)));
         loadPreview(preview, item.output.isEmpty() ? item.input : item.output, 480);
         content.addView(text(item.name, 16, R.color.text, true), block(16));
-        content.addView(text(item.details.isEmpty() ? "아래의 정리하기 버튼을 누르면 사본을 저장합니다." : item.details, 14, R.color.secondary, false), block(8));
+        content.addView(text(item.details.isEmpty() ? "홈의 긴빠이하기 버튼을 누르면 새 사본을 저장합니다." : item.details, 14, R.color.secondary, false), block(8));
         if ("done".equals(item.state)) {
             content.addView(text("갤러리에 저장된 사본입니다. 원본은 수정하지 않았습니다.", 13, R.color.secondary, false), block(12));
+            TextView detectionStatus = text("AI 검출: 검사하지 않음\nSynthID와 플랫폼 AI 표시는 저장 성공과 별개입니다.", 13, R.color.secondary, false);
+            detectionStatus.setId(R.id.detection_status);
+            detectionStatus.setPadding(dp(14), dp(12), dp(14), dp(12));
+            detectionStatus.setBackground(Ui.background(this, R.color.background, 10));
+            content.addView(detectionStatus, block(12));
             Button share = button("이 사진 공유", true);
             share.setOnClickListener(view -> { if (activeSheet != null) activeSheet.dismiss(); shareResults(item); });
             content.addView(share, block(20));
@@ -650,8 +664,8 @@ public final class MainActivity extends Activity {
         }
         filterBar.setVisibility(rows.isEmpty() ? View.GONE : View.VISIBLE);
         emptyState.setVisibility(visibleRows.isEmpty() ? View.VISIBLE : View.GONE);
-        emptyTitle.setText(rows.isEmpty() ? "사진을 추가해 주세요" : names[filter] + " 사진이 없습니다");
-        emptyBody.setText(rows.isEmpty() ? "위치와 생성 기록을 지우고\n깨끗한 사본으로 저장하세요.\n\n원본은 그대로, 모든 처리는 내 폰에서."
+        emptyTitle.setText(rows.isEmpty() ? "사진만 쏙.\n기록은 두고." : names[filter] + " 사진이 없습니다");
+        emptyBody.setText(rows.isEmpty() ? "사진에 딸려온 위치와 생성 기록은 빼고,\n새 사본만 내 갤러리로 챙기세요."
                 : "다른 목록을 선택하거나 사진을 더 추가하세요.");
         options.setText((preferences.getBoolean("jpeg", false) ? "JPEG / 작은 용량" : "PNG / 원본 해상도")
                 + (preferences.getBoolean("reprocess", false) ? " / 실험 모드 켜짐"
@@ -664,7 +678,8 @@ public final class MainActivity extends Activity {
         settings.setAlpha(settings.isEnabled() ? 1f : 0.4f);
         primary.setEnabled(!importing && !sharing && !(app.running && app.stopRequested));
         primary.setText(importing ? "사진 준비 중..." : sharing ? "공유 준비 중..." : app.running ? (app.stopRequested ? "현재 사진을 마치는 중..." : "현재 사진 후 중지")
-                : pending + retry > 0 ? (pending + retry) + "장 정리하기" : done > 0 ? "완료한 " + done + "장 공유" : "사진 추가");
+                : pending + retry > 0 ? (pending + retry) + "장 긴빠이하기" : done > 0 ? "챙긴 " + done + "장 공유" : "사진 가져오기");
+        primary.setContentDescription(primary.getText() + (pending + retry > 0 && !app.running ? ", 메타데이터를 정리한 사본 저장" : ""));
         progress.setVisibility(app.running ? View.VISIBLE : View.GONE);
         progress.setMax(Math.max(1, rows.size()));
         progress.setProgress(done + errors);
@@ -672,7 +687,7 @@ public final class MainActivity extends Activity {
         else if (importing) status.setText("선택한 사진을 안전하게 준비하고 있어요.");
         else if (app.running) status.setText("완료 " + done + " / " + rows.size() + "장" + (errors > 0 ? " / 실패 " + errors + "장" : ""));
         else if (errors > 0) status.setText("실패 " + errors + "장 / 사진을 눌러 원인을 확인하세요.");
-        else if (done > 0) status.setText("갤러리에 " + done + "장 저장 완료 / 원본 보존");
+        else if (done > 0) status.setText("사본 " + done + "장 챙겼어요 / 갤러리 저장 완료");
         else if (preferences.getBoolean("reprocess", false)) status.setText("실험 모드 / 색상과 디테일 손실 가능");
         else status.setText("원본 보존 / 오프라인 처리 / 횟수 제한 없음");
         status.setTextColor(color(errors > 0 || !app.storageError.isEmpty() ? R.color.error : R.color.secondary));
