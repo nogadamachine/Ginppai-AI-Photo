@@ -53,17 +53,15 @@ public final class CleanService extends Service {
         if (app.running) return START_NOT_STICKY;
         app.running = true;
         app.stopRequested = false;
-        boolean fingerprint = intent != null && intent.getBooleanExtra("fingerprint", false);
         boolean jpeg = intent != null && intent.getBooleanExtra("jpeg", false);
-        boolean reprocess = intent != null && intent.getBooleanExtra("reprocess", false);
         wakeLock = getSystemService(PowerManager.class).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, getPackageName() + ":processing");
         wakeLock.acquire(6 * 60 * 60 * 1000L);
         app.notifyChanged();
-        task = worker.submit(() -> process(fingerprint, jpeg, reprocess));
+        task = worker.submit(() -> process(jpeg));
         return START_NOT_STICKY;
     }
 
-    private void process(boolean fingerprint, boolean jpeg, boolean reprocess) {
+    private void process(boolean jpeg) {
         try {
             CleanApp.Item item;
             int count = 0;
@@ -72,7 +70,7 @@ public final class CleanService extends Service {
                 getSystemService(NotificationManager.class).notify(1, notification((count + 1) + "번째 사진 처리 중"));
                 ImageProcessor.Result result = null;
                 try {
-                    result = ImageProcessor.process(this, Uri.parse(item.input), getCacheDir(), fingerprint, jpeg, reprocess);
+                    result = ImageProcessor.process(this, Uri.parse(item.input), getCacheDir(), jpeg);
                     checkInterrupted();
                     Uri output = publish(item.id, result);
                     app.update(item.id, "done", output.toString(), result.mimeType,

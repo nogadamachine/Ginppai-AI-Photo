@@ -35,9 +35,9 @@ import android.widget.ProgressBar;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.ScrollView;
-import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -327,41 +327,12 @@ public final class MainActivity extends Activity {
         formats.setOnCheckedChangeListener((group, selected) -> updateHint.run());
         updateHint.run();
         content.addView(formatHint, block(4));
-        Switch fingerprint = new Switch(this);
-        fingerprint.setId(R.id.option_fingerprint);
-        fingerprint.setText("미세한 픽셀 변화");
-        fingerprint.setTextSize(16);
-        fingerprint.setTextColor(color(R.color.text));
-        fingerprint.setSwitchPadding(dp(16));
-        fingerprint.setMinHeight(dp(56));
-        fingerprint.setChecked(preferences.getBoolean("fingerprint", false));
-        content.addView(fingerprint, block(24));
-        content.addView(text("아주 작은 확대, 회전, 밝기 변화를 추가합니다. 가장자리와 픽셀이 달라질 수 있어요.", 13, R.color.secondary, false), block(4));
-        Switch reprocess = new Switch(this);
-        reprocess.setId(R.id.option_reprocess);
-        reprocess.setText("픽셀 재처리 (실험)");
-        reprocess.setTextSize(16);
-        reprocess.setTextColor(color(R.color.text));
-        reprocess.setSwitchPadding(dp(16));
-        reprocess.setMinHeight(dp(56));
-        reprocess.setChecked(preferences.getBoolean("reprocess", false));
-        content.addView(reprocess, block(20));
-        content.addView(text("축소 후 복원과 색상 단순화로 일부 픽셀 신호를 약화합니다. 색상과 디테일이 손상될 수 있어요. 기본값은 꺼짐입니다.", 13, R.color.secondary, false), block(4));
-        content.addView(text("SynthID 회피 기능이 아닙니다. 공개 워터마크 2종의 제한된 실험으로, 다른 워터마크와 AI 판별에는 효과가 검증되지 않았습니다.", 13, R.color.error, false), block(10));
-        Button detection = button("SynthID와 AI 표시 안내", false);
-        detection.setId(R.id.detection_info);
-        content.addView(detection, block(16));
-        detection.setOnClickListener(view -> new AlertDialog.Builder(this)
-                .setTitle("사진 저장과 AI 판별은 별개입니다")
-                .setMessage("파일 속 AI 생성 기록은 정리하지만 픽셀에 심긴 SynthID는 다릅니다.\n\n현재 앱에는 SynthID 검출기나 검증된 회피 기능이 없습니다. 실험 모드를 켜도 제거 성공으로 판정하지 않습니다.\n\nAI 표시 여부는 게시 플랫폼이 결정합니다. 메타데이터를 지워도 표시가 붙을 수 있습니다.")
-                .setPositiveButton("확인", null).show());
         Button apply = button("설정 적용", true);
         apply.setId(R.id.apply_settings);
         content.addView(apply, block(24));
         Dialog dialog = sheet("저장 설정", content);
         apply.setOnClickListener(view -> {
-            preferences.edit().putBoolean("jpeg", jpeg.isChecked()).putBoolean("fingerprint", fingerprint.isChecked())
-                    .putBoolean("reprocess", reprocess.isChecked()).apply();
+            preferences.edit().putBoolean("jpeg", jpeg.isChecked()).apply();
             dialog.dismiss();
             refresh();
         });
@@ -387,10 +358,11 @@ public final class MainActivity extends Activity {
 
     private void showHelp() {
         LinearLayout content = vertical();
-        content.addView(text("사진만 쏙. 원본은 그대로.\n\n1. 사진 가져오기\n여러 장을 고르거나 갤러리의 공유 메뉴에서 긴빠이로 보내세요.\n\n2. 긴빠이하기\n위치, 촬영 정보, 파일 안의 AI 생성 기록을 덜어낸 새 사본을 갤러리에 저장합니다.\n\n3. 챙긴 사본 공유\n완료한 사진을 누르면 미리보기와 개별 공유가 가능합니다.\n\n저장 완료는 AI 판별 통과를 뜻하지 않습니다. SynthID 회피와 모든 워터마크 제거를 보장하지 않습니다.", 15, R.color.text, false));
+        content.addView(text("사진만 쏙. 원본은 그대로.\n\n1. 사진 가져오기\n여러 장을 고르거나 갤러리의 공유 메뉴에서 긴빠이로 보내세요.\n\n2. 긴빠이하기\n위치, 촬영 정보, 파일 안의 생성 기록을 덜어낸 새 사본을 갤러리에 저장합니다.\n\n3. 챙긴 사본 공유\n완료한 사진을 누르면 미리보기와 개별 공유가 가능합니다.", 15, R.color.text, false));
         content.addView(text("저장 위치\nPictures/Ginppai-AI-Photo\n\n인터넷 연결, 계정, 광고, 사용 횟수 제한이 없습니다. 한 파일은 256 MB 이하이며 처리 가능 크기는 기기 메모리에 따라 달라집니다.\n\n동영상과 애니메이션은 지원하지 않습니다. 일부 HEIC/AVIF와 RAW는 기기 디코더에 따라 열리지 않을 수 있습니다.\n\n버전 " + BuildConfig.VERSION_NAME, 13, R.color.secondary, false), block(24));
         sheet("사용 안내", content);
     }
+
     private void pick() {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("image/*").addCategory(Intent.CATEGORY_OPENABLE);
         intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
@@ -531,9 +503,7 @@ public final class MainActivity extends Activity {
         }
         app.retryFailures();
         Intent intent = new Intent(this, CleanService.class)
-                .putExtra("fingerprint", preferences.getBoolean("fingerprint", false))
-                .putExtra("jpeg", preferences.getBoolean("jpeg", false))
-                .putExtra("reprocess", preferences.getBoolean("reprocess", false));
+                .putExtra("jpeg", preferences.getBoolean("jpeg", false));
         try { startForegroundService(intent); }
         catch (RuntimeException exception) { toast("처리를 시작하지 못했습니다. 앱을 열어 둔 상태에서 다시 시도해 주세요."); }
     }
@@ -577,14 +547,15 @@ public final class MainActivity extends Activity {
         content.addView(preview, new LinearLayout.LayoutParams(-1, dp(compact() ? 120 : 220)));
         loadPreview(preview, item.output.isEmpty() ? item.input : item.output, 480);
         content.addView(text(item.name, 16, R.color.text, true), block(16));
-        content.addView(text(item.details.isEmpty() ? "홈의 긴빠이하기 버튼을 누르면 새 사본을 저장합니다." : item.details, 14, R.color.secondary, false), block(8));
+        String details = "done".equals(item.state)
+                ? ("image/jpeg".equals(item.mime) ? "JPEG 사본" : "PNG 사본")
+                : item.details.isEmpty() ? "홈의 긴빠이하기 버튼을 누르면 새 사본을 저장합니다." : item.details;
+        if ("done".equals(item.state) && item.outputBytes > 0) {
+            details += " / " + android.text.format.Formatter.formatShortFileSize(this, item.outputBytes);
+        }
+        content.addView(text(details, 14, R.color.secondary, false), block(8));
         if ("done".equals(item.state)) {
             content.addView(text("갤러리에 저장된 사본입니다. 원본은 수정하지 않았습니다.", 13, R.color.secondary, false), block(12));
-            TextView detectionStatus = text("AI 검출: 검사하지 않음\nSynthID와 플랫폼 AI 표시는 저장 성공과 별개입니다.", 13, R.color.secondary, false);
-            detectionStatus.setId(R.id.detection_status);
-            detectionStatus.setPadding(dp(14), dp(12), dp(14), dp(12));
-            detectionStatus.setBackground(Ui.background(this, R.color.background, 10));
-            content.addView(detectionStatus, block(12));
             Button share = button("이 사진 공유", true);
             share.setOnClickListener(view -> { if (activeSheet != null) activeSheet.dismiss(); shareResults(item); });
             content.addView(share, block(20));
@@ -667,9 +638,7 @@ public final class MainActivity extends Activity {
         emptyTitle.setText(rows.isEmpty() ? "사진만 쏙.\n기록은 두고." : names[filter] + " 사진이 없습니다");
         emptyBody.setText(rows.isEmpty() ? "사진에 딸려온 위치와 생성 기록은 빼고,\n새 사본만 내 갤러리로 챙기세요."
                 : "다른 목록을 선택하거나 사진을 더 추가하세요.");
-        options.setText((preferences.getBoolean("jpeg", false) ? "JPEG / 작은 용량" : "PNG / 원본 해상도")
-                + (preferences.getBoolean("reprocess", false) ? " / 실험 모드 켜짐"
-                : preferences.getBoolean("fingerprint", false) ? " / 픽셀 변화 켜짐" : " / 픽셀 변화 꺼짐"));
+        options.setText(preferences.getBoolean("jpeg", false) ? "JPEG / 작은 용량" : "PNG / 원본 해상도");
         boolean importing = app.importsInFlight.get() > 0;
         add.setVisibility(rows.isEmpty() ? View.GONE : View.VISIBLE);
         add.setEnabled(!importing && !app.running);
@@ -688,7 +657,6 @@ public final class MainActivity extends Activity {
         else if (app.running) status.setText("완료 " + done + " / " + rows.size() + "장" + (errors > 0 ? " / 실패 " + errors + "장" : ""));
         else if (errors > 0) status.setText("실패 " + errors + "장 / 사진을 눌러 원인을 확인하세요.");
         else if (done > 0) status.setText("사본 " + done + "장 챙겼어요 / 갤러리 저장 완료");
-        else if (preferences.getBoolean("reprocess", false)) status.setText("실험 모드 / 색상과 디테일 손실 가능");
         else status.setText("원본 보존 / 오프라인 처리 / 횟수 제한 없음");
         status.setTextColor(color(errors > 0 || !app.storageError.isEmpty() ? R.color.error : R.color.secondary));
         adapter.notifyDataSetChanged();

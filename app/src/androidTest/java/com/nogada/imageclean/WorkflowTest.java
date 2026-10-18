@@ -5,6 +5,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.net.Uri;
 import android.provider.MediaStore;
@@ -35,7 +36,8 @@ public final class WorkflowTest extends InstrumentationTestCase {
                 bitmap.recycle();
                 app.add(uri, "테스트 이미지 " + (index + 1));
             }
-            getInstrumentation().runOnMainSync(() -> context.startForegroundService(new Intent(context, CleanService.class)));
+            getInstrumentation().runOnMainSync(() -> context.startForegroundService(new Intent(context, CleanService.class)
+                    .putExtra("fingerprint", true).putExtra("reprocess", true).putExtra("strength", 5)));
             long deadline = System.currentTimeMillis() + 45000;
             while (System.currentTimeMillis() < deadline) {
                 int finished = 0;
@@ -50,7 +52,18 @@ public final class WorkflowTest extends InstrumentationTestCase {
                 Uri output = Uri.parse(item.output);
                 outputs.add(output);
                 assertFalse(inputs.contains(output));
-                try (java.io.InputStream stream = context.getContentResolver().openInputStream(output)) { assertTrue(stream.read() >= 0); }
+                try (java.io.InputStream original = context.getContentResolver().openInputStream(Uri.parse(item.input));
+                     java.io.InputStream processed = context.getContentResolver().openInputStream(output)) {
+                    Bitmap expected = BitmapFactory.decodeStream(original);
+                    Bitmap actual = BitmapFactory.decodeStream(processed);
+                    assertNotNull(expected);
+                    assertNotNull(actual);
+                    assertTrue("Retired intent extras cannot change pixels", expected.sameAs(actual));
+                    expected.recycle();
+                    actual.recycle();
+                }
+                assertFalse(item.details.contains("실험"));
+                assertFalse(item.details.contains("픽셀 변화"));
                 try (java.io.InputStream stream = context.getContentResolver().openInputStream(Uri.parse(item.input))) { assertTrue(stream.read() >= 0); }
             }
             app.clear();

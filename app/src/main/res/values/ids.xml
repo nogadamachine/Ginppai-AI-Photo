@@ -11,11 +11,7 @@
     <item name="filter_error" type="id" />
     <item name="option_png" type="id" />
     <item name="option_jpeg" type="id" />
-    <item name="option_fingerprint" type="id" />
-    <item name="option_reprocess" type="id" />
     <item name="apply_settings" type="id" />
     <item name="status_label" type="id" />
-    <item name="detection_info" type="id" />
-    <item name="detection_status" type="id" />
     <item name="empty_title" type="id" />
 </resources>

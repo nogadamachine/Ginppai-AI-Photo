@@ -56,7 +56,6 @@ public final class ImageProcessorDeviceTest extends AndroidTestCase {
                     getContext(),
                     Uri.fromFile(source),
                     directory,
-                    false,
                     false
             );
 
@@ -94,7 +93,6 @@ public final class ImageProcessorDeviceTest extends AndroidTestCase {
                     getContext(),
                     Uri.fromFile(source),
                     directory,
-                    false,
                     false
             );
 
@@ -136,7 +134,6 @@ public final class ImageProcessorDeviceTest extends AndroidTestCase {
                     getContext(),
                     Uri.fromFile(source),
                     directory,
-                    false,
                     true
             );
 
@@ -165,7 +162,6 @@ public final class ImageProcessorDeviceTest extends AndroidTestCase {
                     getContext(),
                     Uri.fromFile(source),
                     directory,
-                    false,
                     true
             );
 
@@ -195,7 +191,6 @@ public final class ImageProcessorDeviceTest extends AndroidTestCase {
                     getContext(),
                     Uri.fromFile(source),
                     directory,
-                    false,
                     false
             );
 
@@ -209,53 +204,13 @@ public final class ImageProcessorDeviceTest extends AndroidTestCase {
         }
     }
 
-    public void testFingerprintKeepsDimensionsAndChangesOpaquePixels() throws Exception {
-        File directory = createTestDirectory("fingerprint");
-        try {
-            File source = new File(directory, "source.png");
-            Bitmap fixture = createSolidBitmap(256, 192, Color.rgb(128, 128, 128));
-            writeBitmap(source, fixture, Bitmap.CompressFormat.PNG, 100);
-            fixture.recycle();
-            Bitmap expected = BitmapFactory.decodeFile(source.getAbsolutePath());
-
-            ImageProcessor.Result result = ImageProcessor.process(
-                    getContext(),
-                    Uri.fromFile(source),
-                    directory,
-                    true,
-                    false
-            );
-
-            Bitmap actual = BitmapFactory.decodeFile(result.file.getAbsolutePath());
-            assertNotNull(actual);
-            assertEquals(expected.getWidth(), actual.getWidth());
-            assertEquals(expected.getHeight(), actual.getHeight());
-            assertEquals("메타데이터 제거 / 픽셀 변화 적용", result.details);
-            int differentPixels = 0;
-            for (int rowIndex = 0; rowIndex < actual.getHeight(); rowIndex++) {
-                for (int columnIndex = 0; columnIndex < actual.getWidth(); columnIndex++) {
-                    int pixel = actual.getPixel(columnIndex, rowIndex);
-                    assertEquals(255, Color.alpha(pixel));
-                    if (pixel != expected.getPixel(columnIndex, rowIndex)) {
-                        differentPixels++;
-                    }
-                }
-            }
-            assertTrue(differentPixels > 0);
-            expected.recycle();
-            actual.recycle();
-        } finally {
-            deleteTree(directory);
-        }
-    }
-
     public void testAnimatedGifAndInvalidBytesAreRejected() throws Exception {
         File directory = createTestDirectory("reject_inputs");
         try {
             File animated = new File(directory, "animated.gif");
             writeBytes(animated, createAnimatedGif());
             try {
-                ImageProcessor.process(getContext(), Uri.fromFile(animated), directory, false, false);
+                ImageProcessor.process(getContext(), Uri.fromFile(animated), directory, false);
                 fail("움직이는 GIF가 거부되어야 합니다.");
             } catch (IOException expected) {
                 assertTrue(expected.getMessage().contains("움직이는"));
@@ -264,7 +219,7 @@ public final class ImageProcessorDeviceTest extends AndroidTestCase {
             File invalid = new File(directory, "invalid.bin");
             writeBytes(invalid, new byte[]{1, 2, 3, 4, 5, 6, 7});
             try {
-                ImageProcessor.process(getContext(), Uri.fromFile(invalid), directory, false, false);
+                ImageProcessor.process(getContext(), Uri.fromFile(invalid), directory, false);
                 fail("손상된 입력이 거부되어야 합니다.");
             } catch (IOException expected) {
                 assertTrue(expected.getMessage().contains("지원하지 않거나 손상된"));
@@ -283,7 +238,7 @@ public final class ImageProcessorDeviceTest extends AndroidTestCase {
             fixture.recycle();
             Thread.currentThread().interrupt();
             try {
-                ImageProcessor.process(getContext(), Uri.fromFile(source), directory, false, false);
+                ImageProcessor.process(getContext(), Uri.fromFile(source), directory, false);
                 fail("중단된 작업이 결과를 만들면 안 됩니다.");
             } catch (InterruptedIOException expected) {
                 assertTrue(expected.getMessage().contains("중단"));
@@ -322,7 +277,6 @@ public final class ImageProcessorDeviceTest extends AndroidTestCase {
                     getContext(),
                     Uri.fromFile(source),
                     directory,
-                    false,
                     false
             );
             assertEquals(64, result.width);

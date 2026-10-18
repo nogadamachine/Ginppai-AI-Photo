@@ -15,8 +15,8 @@ android {
         applicationId 'com.nogada.imageclean'
         minSdk 29
         targetSdk 35
-        versionCode 4
-        versionName '1.3.0'
+        versionCode 10
+        versionName '1.6.0'
         testInstrumentationRunner 'android.test.InstrumentationTestRunner'
     }
     buildTypes {
@@ -32,4 +32,34 @@ android {
         abortOnError true
         disable 'OldTargetApi', 'GradleDependency'
     }
+}
+
+def maximumReleaseApkBytes = 10L * 1024L * 1024L
+def releaseApkDirectory = layout.buildDirectory.dir('outputs/apk/release')
+def verifyReleaseApkSize = tasks.register('verifyReleaseApkSize') {
+    group = 'verification'
+    description = 'Rejects release APKs larger than the 10 MiB offline-app budget.'
+    dependsOn 'packageRelease'
+
+    doLast {
+        def releaseApks = fileTree(releaseApkDirectory.get().asFile) {
+            include '*.apk'
+        }.files
+        if (releaseApks.isEmpty()) {
+            throw new GradleException('No release APK was produced for size verification.')
+        }
+        releaseApks.sort { it.name }.each { apk ->
+            long apkBytes = apk.length()
+            if (apkBytes == 0L || apkBytes > maximumReleaseApkBytes) {
+                throw new GradleException(
+                        "${apk.name}: ${apkBytes} bytes; release APK must be 1..${maximumReleaseApkBytes} bytes."
+                )
+            }
+            logger.lifecycle("APK size verified: ${apk.name} = ${apkBytes} / ${maximumReleaseApkBytes} bytes")
+        }
+    }
+}
+
+tasks.matching { it.name == 'assembleRelease' }.configureEach {
+    dependsOn verifyReleaseApkSize
 }

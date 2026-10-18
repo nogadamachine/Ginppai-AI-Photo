@@ -6,9 +6,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorSpace;
 import android.graphics.ImageDecoder;
-import android.graphics.Paint;
 import android.graphics.Rect;
-import android.graphics.RectF;
 import android.net.Uri;
 
 import java.io.BufferedInputStream;
@@ -22,7 +20,6 @@ import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.util.Arrays;
-import java.util.Random;
 import java.util.UUID;
 
 public final class ImageProcessor {
@@ -66,22 +63,7 @@ public final class ImageProcessor {
     }
 
     public static Result process(
-            Context context,
-            Uri input,
-            File outputDirectory,
-            boolean fingerprint,
-            boolean jpegOutput
-    ) throws IOException {
-        return process(context, input, outputDirectory, fingerprint, jpegOutput, false);
-    }
-
-    public static Result process(
-            Context context,
-            Uri input,
-            File outputDirectory,
-            boolean fingerprint,
-            boolean jpegOutput,
-            boolean reprocess
+            Context context, Uri input, File outputDirectory, boolean jpegOutput
     ) throws IOException {
         if (context == null || input == null || outputDirectory == null) {
             throw new IllegalArgumentException("컨텍스트, 입력 URI, 결과 폴더가 필요합니다.");
@@ -106,26 +88,9 @@ public final class ImageProcessor {
             int sourceHeight = decoded.getHeight();
             int outputWidth = sourceWidth;
             int outputHeight = sourceHeight;
-            Random fingerprintRandom = fingerprint
-                    ? new Random(UUID.randomUUID().getMostSignificantBits() ^ System.nanoTime())
-                    : null;
-            cleaned = createFreshBitmap(
-                    decoded,
-                    outputWidth,
-                    outputHeight,
-                    fingerprint,
-                    jpegOutput,
-                    fingerprintRandom
-            );
+            cleaned = createFreshBitmap(decoded, outputWidth, outputHeight, jpegOutput);
             decoded.recycle();
             decoded = null;
-
-            if (fingerprint) {
-                applyBrightnessField(cleaned, fingerprintRandom);
-            }
-            if (reprocess) {
-                PixelReprocessor.apply(cleaned);
-            }
 
             encodedOutput = File.createTempFile("imageclean_encoded_", jpegOutput ? ".jpg" : ".png", context.getCacheDir());
             throwIfInterrupted();
@@ -148,10 +113,7 @@ public final class ImageProcessor {
             }
 
             completed = true;
-            String details = fingerprint
-                    ? "메타데이터 제거 / 픽셀 변화 적용"
-                    : "메타데이터 제거 / " + (jpegOutput ? "JPG 저장" : "PNG 저장");
-            if (reprocess) details += "\n실험적 픽셀 재처리 / 워터마크 검출 미검증";
+            String details = "메타데이터 제거 / " + (jpegOutput ? "JPG 저장" : "PNG 저장");
             return new Result(
                     finalOutput,
                     jpegOutput ? "image/jpeg" : "image/png",
@@ -223,9 +185,7 @@ public final class ImageProcessor {
             Bitmap decoded,
             int outputWidth,
             int outputHeight,
-            boolean fingerprint,
-            boolean jpegOutput,
-            Random fingerprintRandom
+            boolean jpegOutput
     ) {
         Bitmap output = Bitmap.createBitmap(
                 outputWidth,
@@ -240,88 +200,11 @@ public final class ImageProcessor {
         } else {
             canvas.drawColor(Color.TRANSPARENT);
         }
-        if (fingerprint) {
-            float scale = 1.001f + fingerprintRandom.nextFloat() * 0.002f;
-            float rotation = 0.0008f + fingerprintRandom.nextFloat() * 0.002f;
-            float centerX = outputWidth / 2f;
-            float centerY = outputHeight / 2f;
-            Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG | Paint.DITHER_FLAG);
-            Rect source = new Rect(0, 0, decoded.getWidth(), decoded.getHeight());
-            RectF destination = new RectF(
-                    -decoded.getWidth() / 2f,
-                    -decoded.getHeight() / 2f,
-                    decoded.getWidth() / 2f,
-                    decoded.getHeight() / 2f
-            );
-            canvas.save();
-            canvas.translate(centerX, centerY);
-            canvas.rotate(rotation);
-            canvas.scale(scale, scale);
-            canvas.drawBitmap(decoded, source, destination, paint);
-            canvas.restore();
-        } else {
-            Rect source = new Rect(0, 0, decoded.getWidth(), decoded.getHeight());
-            Rect destination = new Rect(0, 0, outputWidth, outputHeight);
-            canvas.drawBitmap(decoded, source, destination, null);
-        }
+        Rect source = new Rect(0, 0, decoded.getWidth(), decoded.getHeight());
+        Rect destination = new Rect(0, 0, outputWidth, outputHeight);
+        canvas.drawBitmap(decoded, source, destination, null);
         output.setHasAlpha(!jpegOutput && decoded.hasAlpha());
         return output;
-    }
-
-    private static void applyBrightnessField(Bitmap bitmap, Random random) throws IOException {
-        int gridSize = 32;
-        float[] field = new float[gridSize * gridSize];
-        for (int index = 0; index < field.length; index++) {
-            field[index] = random.nextFloat() * 5f - 2.5f;
-        }
-        int[] row = new int[bitmap.getWidth()];
-        for (int rowIndex = 0; rowIndex < bitmap.getHeight(); rowIndex++) {
-            throwIfInterrupted();
-            float gridY = bitmap.getHeight() == 1
-                    ? 0f
-                    : (float) rowIndex * (gridSize - 1) / (bitmap.getHeight() - 1);
-            int gridRowStart = Math.min(gridSize - 1, (int) gridY);
-            int gridRowEnd = Math.min(gridSize - 1, gridRowStart + 1);
-            float rowFraction = gridY - gridRowStart;
-            bitmap.getPixels(row, 0, row.length, 0, rowIndex, row.length, 1);
-            for (int columnIndex = 0; columnIndex < row.length; columnIndex++) {
-                int pixel = row[columnIndex];
-                int alpha = Color.alpha(pixel);
-                if (alpha == 0) {
-                    continue;
-                }
-                float gridX = bitmap.getWidth() == 1
-                        ? 0f
-                        : (float) columnIndex * (gridSize - 1) / (bitmap.getWidth() - 1);
-                int gridColumnStart = Math.min(gridSize - 1, (int) gridX);
-                int gridColumnEnd = Math.min(gridSize - 1, gridColumnStart + 1);
-                float columnFraction = gridX - gridColumnStart;
-                float top = lerp(
-                        field[gridRowStart * gridSize + gridColumnStart],
-                        field[gridRowStart * gridSize + gridColumnEnd],
-                        columnFraction
-                );
-                float bottom = lerp(
-                        field[gridRowEnd * gridSize + gridColumnStart],
-                        field[gridRowEnd * gridSize + gridColumnEnd],
-                        columnFraction
-                );
-                int delta = Math.round(lerp(top, bottom, rowFraction));
-                int red = clampChannel(Color.red(pixel) + delta);
-                int green = clampChannel(Color.green(pixel) + delta);
-                int blue = clampChannel(Color.blue(pixel) + delta);
-                row[columnIndex] = Color.argb(alpha, red, green, blue);
-            }
-            bitmap.setPixels(row, 0, row.length, 0, rowIndex, row.length, 1);
-        }
-    }
-
-    private static int clampChannel(int value) {
-        return Math.max(0, Math.min(255, value));
-    }
-
-    private static float lerp(float start, float end, float fraction) {
-        return start + (end - start) * fraction;
     }
 
     private static void encode(Bitmap bitmap, File output, boolean jpeg) throws IOException {

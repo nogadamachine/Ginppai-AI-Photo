@@ -8,6 +8,8 @@ signing.env
 work/
 outputs/
 .DS_Store
+__pycache__/
+*.pyc
 *.apk
 *.idsig
 *.apks

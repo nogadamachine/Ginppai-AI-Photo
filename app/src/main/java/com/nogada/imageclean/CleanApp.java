@@ -72,11 +72,17 @@ public final class CleanApp extends Application {
 
     @Override public void onCreate() {
         super.onCreate();
+        removeRetiredOptions();
         boolean loaded = load();
         cleanupStartupFiles();
         if (!loaded) return;
         recoverInterruptedAndPublishing();
         validateDoneOutputsAsync();
+    }
+
+    void removeRetiredOptions() {
+        getSharedPreferences("options", MODE_PRIVATE).edit()
+                .remove("fingerprint").remove("reprocess").remove("strength").apply();
     }
 
     @Override public void onTerminate() {

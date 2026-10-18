@@ -11,10 +11,12 @@ import android.net.Uri;
 import android.test.InstrumentationTestCase;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.KeyEvent;
+import android.graphics.Rect;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.RadioButton;
-import android.widget.Switch;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import java.io.File;
@@ -35,6 +37,8 @@ public final class UiWorkflowTest extends InstrumentationTestCase {
     private boolean originalFingerprintPreference;
     private boolean hadReprocessPreference;
     private boolean originalReprocessPreference;
+    private boolean hadStrengthPreference;
+    private int originalStrengthPreference;
     private String originalStorageError;
     private File fixtureDirectory;
     private Activity activity;
@@ -54,6 +58,8 @@ public final class UiWorkflowTest extends InstrumentationTestCase {
         originalFingerprintPreference = preferences.getBoolean("fingerprint", false);
         hadReprocessPreference = preferences.contains("reprocess");
         originalReprocessPreference = preferences.getBoolean("reprocess", false);
+        hadStrengthPreference = preferences.contains("strength");
+        originalStrengthPreference = preferences.getInt("strength", 0);
         fixtureDirectory = new File(context.getCacheDir(), "ui_workflow_" + System.nanoTime());
         assertTrue(fixtureDirectory.mkdirs());
         replaceItems(new ArrayList<>());
@@ -92,6 +98,7 @@ public final class UiWorkflowTest extends InstrumentationTestCase {
         assertEquals(View.VISIBLE, emptyState.getVisibility());
         assertEquals(View.GONE, filterScroll.getVisibility());
         assertEquals("원본 보존 / 오프라인 처리 / 횟수 제한 없음", status.getText().toString());
+        capture("home.png");
     }
 
     public void testAllPendingDoneAndErrorFiltersShowMatchingRows() throws Exception {
@@ -132,80 +139,39 @@ public final class UiWorkflowTest extends InstrumentationTestCase {
         click(filterAll);
         assertTrue(filterAll.isSelected());
         assertEquals(4, queue.getAdapter().getCount());
+        capture("queue.png");
     }
 
     public void testSettingsApplyAndCancelPreserveCommittedValues() throws Exception {
         launchActivity();
         View settings = activity.findViewById(R.id.settings_action);
-
         click(settings);
         Dialog firstSheet = activeSheet();
-        RadioButton jpeg = firstSheet.findViewById(R.id.option_jpeg);
-        Switch fingerprint = firstSheet.findViewById(R.id.option_fingerprint);
-        Switch reprocess = firstSheet.findViewById(R.id.option_reprocess);
-        Button apply = firstSheet.findViewById(R.id.apply_settings);
-        getInstrumentation().runOnMainSync(() -> {
-            jpeg.setChecked(true);
-            fingerprint.setChecked(true);
-            reprocess.setChecked(true);
-            apply.performClick();
-        });
-        getInstrumentation().waitForIdleSync();
-
+        getInstrumentation().runOnMainSync(() -> ((RadioButton) firstSheet.findViewById(R.id.option_jpeg)).setChecked(true));
+        click(firstSheet.findViewById(R.id.apply_settings));
         assertTrue(preferences.getBoolean("jpeg", false));
-        assertTrue(preferences.getBoolean("fingerprint", false));
-        assertTrue(preferences.getBoolean("reprocess", false));
-        assertEquals(
-                "JPEG / 작은 용량 / 실험 모드 켜짐",
-                optionsSummary().getText().toString()
-        );
-
+        assertEquals("JPEG / 작은 용량", optionsSummary().getText().toString());
         click(settings);
         Dialog cancelledSheet = activeSheet();
-        RadioButton pngBeforeCancel = cancelledSheet.findViewById(R.id.option_png);
-        Switch fingerprintBeforeCancel = cancelledSheet.findViewById(R.id.option_fingerprint);
-        Switch reprocessBeforeCancel = cancelledSheet.findViewById(R.id.option_reprocess);
         getInstrumentation().runOnMainSync(() -> {
-            pngBeforeCancel.setChecked(true);
-            fingerprintBeforeCancel.setChecked(false);
-            reprocessBeforeCancel.setChecked(false);
+            ((RadioButton) cancelledSheet.findViewById(R.id.option_png)).setChecked(true);
             cancelledSheet.cancel();
         });
         getInstrumentation().waitForIdleSync();
-
         assertTrue(preferences.getBoolean("jpeg", false));
-        assertTrue(preferences.getBoolean("fingerprint", false));
-        assertTrue(preferences.getBoolean("reprocess", false));
-        assertEquals(
-                "JPEG / 작은 용량 / 실험 모드 켜짐",
-                optionsSummary().getText().toString()
-        );
-
+        assertEquals("JPEG / 작은 용량", optionsSummary().getText().toString());
         click(settings);
         Dialog finalSheet = activeSheet();
-        RadioButton png = finalSheet.findViewById(R.id.option_png);
-        Switch fingerprintOff = finalSheet.findViewById(R.id.option_fingerprint);
-        Switch reprocessOff = finalSheet.findViewById(R.id.option_reprocess);
-        Button applyPng = finalSheet.findViewById(R.id.apply_settings);
-        getInstrumentation().runOnMainSync(() -> {
-            png.setChecked(true);
-            fingerprintOff.setChecked(false);
-            reprocessOff.setChecked(false);
-            applyPng.performClick();
-        });
-        getInstrumentation().waitForIdleSync();
-
+        getInstrumentation().runOnMainSync(() -> ((RadioButton) finalSheet.findViewById(R.id.option_png)).setChecked(true));
+        click(finalSheet.findViewById(R.id.apply_settings));
         assertFalse(preferences.getBoolean("jpeg", true));
-        assertFalse(preferences.getBoolean("fingerprint", true));
-        assertFalse(preferences.getBoolean("reprocess", true));
-        assertEquals(
-                "PNG / 원본 해상도 / 픽셀 변화 꺼짐",
-                optionsSummary().getText().toString()
-        );
+        assertEquals("PNG / 원본 해상도", optionsSummary().getText().toString());
     }
 
-    public void testCompletedPhotoDistinguishesSavingFromAiDetection() throws Exception {
+    public void testCompletedPhotoShowsSavedCopyActions() throws Exception {
         addQueueItem("완료 사진", "done");
+        CleanApp.Item saved = findByName("완료 사진");
+        assertTrue(app.update(saved.id, saved.state, saved.output, saved.mime, "이전 버전의 처리 안내"));
         launchActivity();
         ListView queue = activity.findViewById(R.id.queue_list);
         getInstrumentation().runOnMainSync(() -> {
@@ -213,11 +179,111 @@ public final class UiWorkflowTest extends InstrumentationTestCase {
             assertTrue(row.performClick());
         });
         getInstrumentation().waitForIdleSync();
-        TextView detection = activeSheet().findViewById(R.id.detection_status);
-        assertNotNull(detection);
-        assertTrue(detection.getText().toString().startsWith("AI 검출: 검사하지 않음"));
-        assertTrue(detection.getText().toString().contains("SynthID"));
+        View content = activeSheet().getWindow().getDecorView();
+        assertTrue(containsText(content, "갤러리에 저장된 사본입니다. 원본은 수정하지 않았습니다."));
+        assertTrue(containsText(content, "이 사진 공유"));
+        assertTrue(containsText(content, "다른 앱에서 열기"));
+        assertTrue(containsText(content, "PNG 사본"));
+        assertFalse(containsText(content, "이전 버전의 처리 안내"));
+        capture("completed.png");
         assertEquals("챙긴 1장 공유", ((Button) activity.findViewById(R.id.primary_action)).getText().toString());
+    }
+
+    public void testSettingsScrollAndKeyboardEntry() throws Exception {
+        launchActivity();
+        View settings = activity.findViewById(R.id.settings_action);
+        getInstrumentation().runOnMainSync(() -> {
+            settings.setFocusableInTouchMode(true);
+            assertTrue(settings.requestFocus());
+        });
+        getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_ENTER);
+        getInstrumentation().waitForIdleSync();
+        Dialog dialog = activeSheet();
+        assertTrue(dialog.isShowing());
+        RadioButton png = dialog.findViewById(R.id.option_png);
+        assertTrue(png.isChecked());
+        capture("settings-top.png");
+        View current = png;
+        while (!(current instanceof ScrollView)) current = (View) current.getParent();
+        ScrollView scroll = (ScrollView) current;
+        getInstrumentation().runOnMainSync(() -> scroll.scrollTo(0, scroll.getChildAt(0).getHeight()));
+        getInstrumentation().waitForIdleSync();
+        Button apply = dialog.findViewById(R.id.apply_settings);
+        Rect visible = new Rect();
+        assertTrue(apply.getGlobalVisibleRect(visible));
+        assertEquals(apply.getHeight(), visible.height());
+        assertTrue(containsText(dialog.getWindow().getDecorView(), "추가 손실 압축 없이 저장합니다."));
+        capture("settings-bottom.png");
+        click(apply);
+        assertFalse(dialog.isShowing());
+    }
+
+    public void testRetiredPreferencesAreRemovedWithoutChangingQueueOrFormat() throws Exception {
+        addQueueItem("보존할 대기 사진", "ready");
+        addQueueItem("보존할 완료 사진", "done");
+        ArrayList<CleanApp.Item> before = app.snapshot();
+        preferences.edit().putBoolean("jpeg", true).putBoolean("fingerprint", true)
+                .putBoolean("reprocess", true).putInt("strength", 5).commit();
+        getInstrumentation().runOnMainSync(app::removeRetiredOptions);
+        getInstrumentation().runOnMainSync(app::removeRetiredOptions);
+        assertFalse(preferences.contains("fingerprint"));
+        assertFalse(preferences.contains("reprocess"));
+        assertFalse(preferences.contains("strength"));
+        assertTrue(preferences.getBoolean("jpeg", false));
+        ArrayList<CleanApp.Item> after = app.snapshot();
+        assertEquals(before.size(), after.size());
+        for (int index = 0; index < before.size(); index++) {
+            assertEquals(before.get(index).id, after.get(index).id);
+            assertEquals(before.get(index).input, after.get(index).input);
+            assertEquals(before.get(index).output, after.get(index).output);
+            assertEquals(before.get(index).state, after.get(index).state);
+            assertTrue(new File(Uri.parse(after.get(index).input).getPath()).isFile());
+        }
+        launchActivity();
+        click(activity.findViewById(R.id.settings_action));
+        View content = activeSheet().getWindow().getDecorView();
+        assertTrue(containsText(content, "저장 설정"));
+        assertTrue(containsText(content, "화질 95로 압축합니다."));
+    }
+
+    public void testHelpDescribesLocalPhotoWorkflow() throws Exception {
+        launchActivity();
+        Method help = MainActivity.class.getDeclaredMethod("showHelp");
+        help.setAccessible(true);
+        getInstrumentation().runOnMainSync(() -> {
+            try { help.invoke(activity); }
+            catch (Exception exception) { throw new AssertionError(exception); }
+        });
+        getInstrumentation().waitForIdleSync();
+        View content = activeSheet().getWindow().getDecorView();
+        assertTrue(containsText(content, "사진만 쏙. 원본은 그대로."));
+        assertTrue(containsText(content, "Pictures/Ginppai-AI-Photo"));
+        assertTrue(containsText(content, "버전 " + BuildConfig.VERSION_NAME));
+        capture("help.png");
+    }
+
+    private boolean containsText(View view, String expected) {
+        if (view instanceof TextView && ((TextView) view).getText().toString().contains(expected)) return true;
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int index = 0; index < group.getChildCount(); index++) {
+                if (containsText(group.getChildAt(index), expected)) return true;
+            }
+        }
+        return false;
+    }
+
+    private void capture(String filename) throws Exception {
+        android.os.SystemClock.sleep(300);
+        Bitmap screenshot = getInstrumentation().getUiAutomation().takeScreenshot();
+        assertNotNull(screenshot);
+        File directory = new File(context.getExternalFilesDir(null), "ui-review");
+        assertTrue(directory.isDirectory() || directory.mkdirs());
+        try (FileOutputStream stream = new FileOutputStream(new File(directory, filename))) {
+            assertTrue(screenshot.compress(Bitmap.CompressFormat.PNG, 100, stream));
+        } finally {
+            screenshot.recycle();
+        }
     }
 
     private void launchActivity() {
@@ -297,11 +363,14 @@ public final class UiWorkflowTest extends InstrumentationTestCase {
                 .putBoolean("jpeg", jpeg)
                 .putBoolean("fingerprint", fingerprint)
                 .putBoolean("reprocess", reprocess)
+                .putInt("strength", 0)
                 .commit());
     }
 
     private void restorePreferences() {
         SharedPreferences.Editor editor = preferences.edit();
+        if (hadStrengthPreference) editor.putInt("strength", originalStrengthPreference);
+        else editor.remove("strength");
         if (hadJpegPreference) {
             editor.putBoolean("jpeg", originalJpegPreference);
         } else {
