@@ -1,0 +1,18 @@
+<resources>
+    <item name="primary_action" type="id" />
+    <item name="add_photos" type="id" />
+    <item name="settings_action" type="id" />
+    <item name="options_summary" type="id" />
+    <item name="queue_list" type="id" />
+    <item name="empty_state" type="id" />
+    <item name="filter_all" type="id" />
+    <item name="filter_pending" type="id" />
+    <item name="filter_done" type="id" />
+    <item name="filter_error" type="id" />
+    <item name="option_png" type="id" />
+    <item name="option_jpeg" type="id" />
+    <item name="option_fingerprint" type="id" />
+    <item name="option_reprocess" type="id" />
+    <item name="apply_settings" type="id" />
+    <item name="status_label" type="id" />
+</resources>

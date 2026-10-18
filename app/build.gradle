@@ -1,0 +1,35 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    useLibrary 'android.test.runner', false
+    useLibrary 'android.test.base', false
+    useLibrary 'android.test.mock', false
+    namespace 'com.nogada.imageclean'
+    compileSdk 35
+    buildFeatures {
+        buildConfig true
+    }
+    defaultConfig {
+        applicationId 'com.nogada.imageclean'
+        minSdk 29
+        targetSdk 35
+        versionCode 3
+        versionName '1.2.0'
+        testInstrumentationRunner 'android.test.InstrumentationTestRunner'
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    lint {
+        abortOnError true
+        disable 'OldTargetApi', 'GradleDependency'
+    }
+}
